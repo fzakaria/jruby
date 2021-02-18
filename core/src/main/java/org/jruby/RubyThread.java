@@ -1616,7 +1616,19 @@ public class RubyThread extends RubyObject implements ExecutionContext {
 
             this.status.set(status);
 
-            return task.run(context, data);
+            if (interruptMaskStack.isEmpty()) {
+                return task.run(context, data);
+            } else {
+                // loop on blocking operation until it completes normally or an unmasked thread event interrupts
+                while (true) {
+                    try {
+                        return task.run(context, data);
+                    } catch (InterruptedException ie) {
+                        // poll for thread events, or retry blocking operation
+                        pollThreadEvents(context);
+                    }
+                }
+            }
         } finally {
             this.status.set(oldStatus);
             this.unblockFunc = null;
